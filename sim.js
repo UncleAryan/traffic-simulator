@@ -20,11 +20,37 @@ function posToXY(x) {
 }
 
 const dt = 0.05; // fixed physics timestep (s)
+
+// IDM parameters
+const v0 = 20;        // desired speed (m/s)
+const T = 1.5;        // desired time headway (s)
+const s0 = 2;         // minimum bumper gap (m)
+const a_max = 1.0;    // max acceleration (m/s^2)
+const b = 1.5;        // comfortable braking (m/s^2)
+const carLength = 5;  // (m)
+
+// Cars stay sorted by x: single lane, no overtaking, so index order never changes.
+// Car ahead of i is (i+1) % N.
 const cars = [];
-for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15 }); // 15 m/s constant
+for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15 });
+
+// IDM acceleration from own speed, gap to leader, and closing speed
+function idmAccel(v, s, dv) {
+  const sStar = s0 + v * T + (v * dv) / (2 * Math.sqrt(a_max * b));
+  return a_max * (1 - Math.pow(v / v0, 4) - Math.pow(sStar / s, 2));
+}
 
 function update(dt) {
-  for (const car of cars) car.x = (car.x + car.v * dt) % L;
+  // compute all accelerations from current state before moving anyone
+  const accels = cars.map((car, i) => {
+    const lead = cars[(i + 1) % N];
+    const s = (lead.x - car.x + L) % L - carLength; // bumper gap, wrap-safe
+    return idmAccel(car.v, Math.max(s, 0.01), car.v - lead.v);
+  });
+  cars.forEach((car, i) => {
+    car.v = Math.max(car.v + accels[i] * dt, 0);
+    car.x = (car.x + car.v * dt) % L;
+  });
 }
 
 function draw() {

@@ -1,7 +1,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const L = 500;   // loop length (m)
-const N = 30;    // number of cars
+const L = 500; // loop length (m)
+const N = 30; // number of cars
 
 let cx, cy, radius;
 function resize() {
@@ -19,8 +19,13 @@ function posToXY(x) {
   return { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
 }
 
+const dt = 0.05; // fixed physics timestep (s)
 const cars = [];
-for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 0 });
+for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15 }); // 15 m/s constant
+
+function update(dt) {
+  for (const car of cars) car.x = (car.x + car.v * dt) % L;
+}
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -42,8 +47,14 @@ function draw() {
   }
 }
 
-function frame() {
+// frame-rate independent
+// accumulate physics in fixed dt chunks
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min((now - last) / 1000, 0.25); // cap to avoid spiral after tab-away
+  last = now;
+  while (acc >= dt) { update(dt); acc -= dt; }
   draw();
   requestAnimationFrame(frame);
 }
-frame();
+requestAnimationFrame(frame);

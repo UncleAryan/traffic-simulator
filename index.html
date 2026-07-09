@@ -9,6 +9,18 @@
   <body>
     <canvas id="canvas"></canvas>
     <button id="brake">Brake</button>
+    <div id="controls">
+      <label>Cars: <span id="n-val">30</span>
+        <input type="range" id="n" min="5" max="60" step="1" value="30"></label>
+      <label>Desired speed (m/s): <span id="v0-val">20</span>
+        <input type="range" id="v0" min="5" max="40" step="1" value="20"></label>
+      <label>Headway (s): <span id="T-val">1.5</span>
+        <input type="range" id="T" min="0.5" max="3" step="0.1" value="1.5"></label>
+      <label>Max accel (m/s²): <span id="a_max-val">1</span>
+        <input type="range" id="a_max" min="0.3" max="3" step="0.1" value="1"></label>
+      <label>Braking (m/s²): <span id="b-val">1.5</span>
+        <input type="range" id="b" min="0.5" max="4" step="0.1" value="1.5"></label>
+    </div>
     <script src="sim.js"></script>
   </body>
 </html>

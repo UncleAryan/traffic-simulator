@@ -1,7 +1,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const L = 500; // loop length (m)
-const N = 30; // number of cars
+let N = 30; // number of cars
 
 let cx, cy, radius;
 function resize() {
@@ -22,17 +22,21 @@ function posToXY(x) {
 const dt = 0.05; // fixed physics timestep (s)
 
 // IDM parameters
-const v0 = 20;        // desired speed (m/s)
-const T = 1.5;        // desired time headway (s)
+let v0 = 20;          // desired speed (m/s)
+let T = 1.5;          // desired time headway (s)
 const s0 = 2;         // minimum bumper gap (m)
-const a_max = 1.0;    // max acceleration (m/s^2)
-const b = 1.5;        // comfortable braking (m/s^2)
+let a_max = 1.0;      // max acceleration (m/s^2)
+let b = 1.5;          // comfortable braking (m/s^2)
 const carLength = 5;  // (m)
 
 // Cars stay sorted by x: single lane, no overtaking, so index order never changes.
 // Car ahead of i is (i+1) % N.
 const cars = [];
-for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15 });
+function initCars() {
+  cars.length = 0;
+  for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15 });
+}
+initCars();
 
 // IDM acceleration from own speed, gap to leader, and closing speed
 function idmAccel(v, s, dv) {
@@ -76,6 +80,19 @@ function draw() {
 document.getElementById('brake').addEventListener('click', () => {
   cars[0].v = 0;
 });
+
+function bindSlider(id, apply) {
+  const el = document.getElementById(id);
+  el.addEventListener('input', () => {
+    apply(+el.value);
+    document.getElementById(id + '-val').textContent = el.value;
+  });
+}
+bindSlider('n', val => { N = val; initCars(); });
+bindSlider('v0', val => v0 = val);
+bindSlider('T', val => T = val);
+bindSlider('a_max', val => a_max = val);
+bindSlider('b', val => b = val);
 
 // frame-rate independent
 // accumulate physics in fixed dt chunks

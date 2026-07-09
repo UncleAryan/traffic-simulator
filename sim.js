@@ -68,10 +68,14 @@ function draw() {
     const p = posToXY(car.x);
     ctx.beginPath();
     ctx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
-    ctx.fillStyle = '#4caf50';
+    ctx.fillStyle = `hsl(${120 * Math.min(car.v / v0, 1)}, 90%, 50%)`;
     ctx.fill();
   }
 }
+
+document.getElementById('brake').addEventListener('click', () => {
+  cars[0].v = 0;
+});
 
 // frame-rate independent
 // accumulate physics in fixed dt chunks

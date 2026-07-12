@@ -9,6 +9,13 @@
   <body>
     <canvas id="canvas"></canvas>
     <button id="brake">Brake</button>
+    <div id="toolbar">
+      <button data-tool="car" class="active">Add car</button>
+      <button data-tool="crash">Crash</button>
+      <button data-tool="cones">Construction</button>
+      <button data-tool="remove">Remove</button>
+      <button data-tool="clear">Clear obstacles</button>
+    </div>
     <div id="controls">
       <label>Cars: <span id="n-val">30</span>
         <input type="range" id="n" min="5" max="60" step="1" value="30"></label>

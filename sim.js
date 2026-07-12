@@ -44,8 +44,10 @@ const BSAFE = 4;      // max imposed braking
 
 const cars = [];
 function initCars() {
+  const obstacles = cars.filter(c => c.obs);
   cars.length = 0;
   for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15, lane: i % LANES, ly: i % LANES, cool: 0 });
+  cars.push(...obstacles);
 }
 initCars();
 
@@ -96,12 +98,13 @@ function update(dt) {
     });
   }
   for (const car of cars) {
+    if (car.obs) continue;
     car.v = Math.max(car.v + accels.get(car) * dt, 0);
     car.x = (car.x + car.v * dt) % L;
     car.cool = Math.max(car.cool - dt, 0);
   }
   for (const car of cars) {
-    if (car.cool > 0) continue;
+    if (car.cool > 0 || car.obs) continue;
     const arr = laneCars(car.lane);
     const i = arr.indexOf(car);
     const curLead = arr.length > 1 ? arr[(i + 1) % arr.length] : null;
@@ -136,6 +139,43 @@ function drawCar(car) {
   ctx.fillRect(sx - w / 2 + 3 * scale, sy - h - roof, w - 6 * scale, roof);
   ctx.fillStyle = 'rgba(40,60,90,0.9)';
   ctx.fillRect(sx + w / 2 - 8 * scale, sy - h - roof + 1, 3 * scale, roof - 2);
+}
+
+function drawObstacle(car) {
+  const { sx, sy, scale } = project(car.x, car.lane);
+  const w = 30 * scale, h = 11 * scale;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(sx, sy + 2 * scale, w * 0.55, 4 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+  if (car.obs === 'crash') {
+    ctx.save();
+    ctx.translate(sx, sy - h / 2);
+    ctx.rotate(-0.3);
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.fillStyle = '#552222';
+    ctx.fillRect(-w / 2 + 3 * scale, -h / 2 - 5 * scale, w - 6 * scale, 5 * scale);
+    ctx.restore();
+    ctx.fillStyle = '#e8b800';
+    ctx.beginPath();
+    ctx.moveTo(sx, sy - h - 14 * scale);
+    ctx.lineTo(sx - 5 * scale, sy - h - 5 * scale);
+    ctx.lineTo(sx + 5 * scale, sy - h - 5 * scale);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ctx.fillStyle = '#e8641b';
+    for (let i = 0; i < 4; i++) {
+      const cx = sx - w / 2 + (i + 0.5) * w / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx, sy - 10 * scale);
+      ctx.lineTo(cx - 3.5 * scale, sy);
+      ctx.lineTo(cx + 3.5 * scale, sy);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
 }
 
 function draw() {
@@ -179,11 +219,60 @@ function draw() {
   }
   ctx.setLineDash([]);
 
-  for (const car of [...cars].sort((a, b) => b.ly - a.ly)) drawCar(car);
+  for (const car of [...cars].sort((a, b) => (b.ly ?? b.lane) - (a.ly ?? a.lane))) {
+    if (car.obs) drawObstacle(car);
+    else drawCar(car);
+  }
 }
 
 document.getElementById('brake').addEventListener('click', () => {
-  cars[0].v = 0;
+  const c = cars.find(c => !c.obs);
+  if (c) c.v = 0;
+});
+
+let tool = 'car';
+const toolbar = document.getElementById('toolbar');
+toolbar.addEventListener('click', e => {
+  const t = e.target.dataset && e.target.dataset.tool;
+  if (!t) return;
+  if (t === 'clear') {
+    for (let i = cars.length - 1; i >= 0; i--) if (cars[i].obs) cars.splice(i, 1);
+    return;
+  }
+  tool = t;
+  for (const b of toolbar.children) b.classList.toggle('active', b.dataset.tool === tool);
+});
+
+function unproject(px, py) {
+  const d = (0.80 - py / canvas.height) / 0.38;
+  const lane = Math.floor(d * LANES);
+  if (lane < 0 || lane >= LANES) return null;
+  const dc = (lane + 0.5) / LANES;
+  const x = (px - roadLeft(dc)) / (roadRight(dc) - roadLeft(dc)) * L;
+  if (x < 0 || x >= L) return null;
+  return { x, lane };
+}
+
+function blocked(x, lane) {
+  return laneCars(lane).some(c => Math.min((c.x - x + L) % L, (x - c.x + L) % L) < carLength + 2);
+}
+
+canvas.addEventListener('click', e => {
+  if (tool === 'remove') {
+    let best = null, bestD = 25;
+    for (const car of cars) {
+      const p = project(car.x, car.ly ?? car.lane);
+      const dist = Math.hypot(p.sx - e.clientX, p.sy - e.clientY);
+      if (dist < bestD) { bestD = dist; best = car; }
+    }
+    if (best) cars.splice(cars.indexOf(best), 1);
+    return;
+  }
+  const hit = unproject(e.clientX, e.clientY);
+  if (!hit || blocked(hit.x, hit.lane)) return;
+  const car = { x: hit.x, v: 0, lane: hit.lane, ly: hit.lane, cool: 0 };
+  if (tool !== 'car') car.obs = tool;
+  cars.push(car);
 });
 
 function bindSlider(id, apply) {

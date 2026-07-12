@@ -23,6 +23,32 @@ canvas {
     background: #8e0000;
 }
 
+#toolbar {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: 8px;
+}
+
+#toolbar button {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: none;
+    border-radius: 6px;
+    background: #444;
+    color: #eee;
+    cursor: pointer;
+}
+
+#toolbar button.active {
+    background: #1976d2;
+}
+
 #controls {
     position: fixed;
     top: 16px;

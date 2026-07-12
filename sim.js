@@ -11,9 +11,20 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
-const laneGapPx = 46;
-function laneY(lane) {
-  return canvas.height / 2 + (lane - (LANES - 1) / 2) * laneGapPx;
+// pseudo-3D projection: depth d=0 near road edge, d=1 far edge
+function roadY(d) {
+  return canvas.height * (0.80 - 0.38 * d);
+}
+function roadLeft(d) {
+  return canvas.width * 0.14 * d;
+}
+function roadRight(d) {
+  return canvas.width - roadLeft(d);
+}
+function project(x, lane) {
+  const d = (lane + 0.5) / LANES;
+  const sx = roadLeft(d) + (roadRight(d) - roadLeft(d)) * (x / L);
+  return { sx, sy: roadY(d), scale: 1.15 - 0.45 * d };
 }
 
 const dt = 0.05; // fixed physics timestep (s)
@@ -34,7 +45,7 @@ const BSAFE = 4;      // max imposed braking
 const cars = [];
 function initCars() {
   cars.length = 0;
-  for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15, lane: i % LANES, cool: 0 });
+  for (let i = 0; i < N; i++) cars.push({ x: i * L / N, v: 15, lane: i % LANES, ly: i % LANES, cool: 0 });
 }
 initCars();
 
@@ -104,32 +115,71 @@ function update(dt) {
   }
 }
 
-function speedColor(v) {
-  return `hsl(${120 * Math.min(v / v0, 1)}, 90%, 50%)`;
+function speedColor(v, light = 50) {
+  return `hsl(${120 * Math.min(v / v0, 1)}, 85%, ${light}%)`;
+}
+
+function drawCar(car) {
+  if (car.ly === undefined) car.ly = car.lane;
+  car.ly += (car.lane - car.ly) * 0.1;
+  const { sx, sy, scale } = project(car.x, car.ly);
+  const w = 30 * scale, h = 11 * scale, roof = 6 * scale;
+
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(sx, sy + 2 * scale, w * 0.55, 4 * scale, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = speedColor(car.v, 40);
+  ctx.fillRect(sx - w / 2, sy - h, w, h);
+  ctx.fillStyle = speedColor(car.v, 55);
+  ctx.fillRect(sx - w / 2 + 3 * scale, sy - h - roof, w - 6 * scale, roof);
+  ctx.fillStyle = 'rgba(40,60,90,0.9)';
+  ctx.fillRect(sx + w / 2 - 8 * scale, sy - h - roof + 1, 3 * scale, roof - 2);
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const W = canvas.width, H = canvas.height;
 
-  const roadTop = laneY(0) - laneGapPx / 2;
-  ctx.fillStyle = '#555';
-  ctx.fillRect(0, roadTop, canvas.width, LANES * laneGapPx);
-  ctx.strokeStyle = '#999';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([20, 16]);
-  for (let l = 1; l < LANES; l++) {
-    const y = roadTop + l * laneGapPx;
+  const sky = ctx.createLinearGradient(0, 0, 0, roadY(1));
+  sky.addColorStop(0, '#87b5e0');
+  sky.addColorStop(1, '#d8e8f5');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, roadY(1));
+  ctx.fillStyle = '#6a9c59';
+  ctx.fillRect(0, roadY(1), W, H - roadY(1));
+
+  ctx.fillStyle = '#4a4a4f';
+  ctx.beginPath();
+  ctx.moveTo(roadLeft(0), roadY(0));
+  ctx.lineTo(roadRight(0), roadY(0));
+  ctx.lineTo(roadRight(1), roadY(1));
+  ctx.lineTo(roadLeft(1), roadY(1));
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#eee';
+  ctx.lineWidth = 3;
+  for (const d of [0, 1]) {
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
+    ctx.moveTo(roadLeft(d), roadY(d));
+    ctx.lineTo(roadRight(d), roadY(d));
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 2;
+  for (let l = 1; l < LANES; l++) {
+    const d = l / LANES;
+    const s = 1.15 - 0.45 * d;
+    ctx.setLineDash([18 * s, 14 * s]);
+    ctx.beginPath();
+    ctx.moveTo(roadLeft(d), roadY(d));
+    ctx.lineTo(roadRight(d), roadY(d));
     ctx.stroke();
   }
   ctx.setLineDash([]);
 
-  for (const car of cars) {
-    ctx.fillStyle = speedColor(car.v);
-    ctx.fillRect(car.x / L * canvas.width - 7, laneY(car.lane) - 5, 14, 10);
-  }
+  for (const car of [...cars].sort((a, b) => b.ly - a.ly)) drawCar(car);
 }
 
 document.getElementById('brake').addEventListener('click', () => {
